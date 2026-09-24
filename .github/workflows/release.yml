@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and test
+        run: mvn verify -B
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          jar="target/bhce-weaver-${VERSION}.jar"
+          obfuscated="target/bhce-weaver-${VERSION}-obfuscated.jar"
+
+          # Prefer obfuscated JAR if present
+          if [ -f "$obfuscated" ]; then
+            release_jar="$obfuscated"
+          else
+            test -f "$jar"
+            release_jar="$jar"
+          fi
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "BHCE Weaver ${VERSION}" \
+              --generate-notes
+          fi
+
+          gh release upload "$TAG" "$release_jar" --clobber

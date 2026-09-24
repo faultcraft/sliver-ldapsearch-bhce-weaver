@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# commit-msg: block Co-Authored-By / Claude Code trailers.
+
+msg_file="$1"
+
+if grep -qiE 'Co-Authored-By:.*Claude|Co-Authored-By:.*noreply@anthropic|Generated with.*Claude Code|Claude-Session:' "$msg_file"; then
+    echo "commit-msg: blocked -- commit message contains Claude attribution trailer." >&2
+    echo "  Strip the trailer and retry." >&2
+    echo "  Offending line(s):" >&2
+    grep -niE 'Co-Authored-By:.*Claude|Co-Authored-By:.*noreply@anthropic|Generated with.*Claude Code|Claude-Session:' "$msg_file" | sed 's/^/    /' >&2
+    exit 1
+fi
